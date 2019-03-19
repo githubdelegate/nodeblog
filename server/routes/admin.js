@@ -1,6 +1,88 @@
 const router = require('koa-router')()
-const BMP24 = require('gd-bmp').BMP24;
-router.prefix('/api/setting')
+const BMP24 = require('gd-bmp').BMP24
+const Admin = require('../db').Admin
+const AdminModel = require('../models/admin')
+const sha1 = require('sha1')
+const SHA1_ADD_STR = "zyblog_encrypted_string"
+router.prefix('/api/admin')
+
+//  实现注册的原理: 先实现 mongoose 数据库定义, 然后实现注册方法, 根据 id
+//  ,pwd 判断数据库中是否已经有了,没有就存储, 有了就提示已有了
+// 注册  根据 admin_id , admin_pwd ,checkcode 注册
+router.post('/signup', async (ctx) => {
+  let {
+    admin_id,
+    admin_pwd
+  } = ctx.request.body
+  if (admin_id === '' || admin_pwd === '') {
+    ctx.body = {
+      code: 401,
+      msg: '请填写完整信息'
+    }
+    return
+  }
+  let res = await AdminModel.find_by_admin_id(admin_id)
+  if (res.length != 0) {
+    ctx.body = {
+      code: 409,
+      msg: '用户名不可用, 重新填写'
+    }
+    return
+  }
+
+  let admin = new Admin({
+    admin_id,
+    admin_pwd: sha1(sha1(admin_pwd + SHA1_ADD_STR))
+  })
+
+  res = await admin.save()
+  if (res) {
+    ctx.body = {
+      code: 200,
+      msg: '注册成功'
+    }
+  } else {
+    ctx.body = {
+      code: 500,
+      msg: '注册失败'
+    }
+  }
+
+})
+
+// 登录,检查传递进来的 admin_id, admin_pwd ,直接数据库查找对应数据,有就成功
+router.post('/login', async (ctx) => {
+  let {
+    admin_id,
+    admin_pwd
+  } = ctx.request.body
+  if (admin_id === '' || admin_pwd === '') {
+    ctx.body = {
+      code: 401,
+      msg: '账号密码错误'
+    }
+    return
+  }
+
+  let res = await Admin.find({
+    admin_id,
+    admin_pwd: sha1(sha1(admin_pwd + SHA1_ADD_STR))
+  })
+  if (res.length == 0) {
+    ctx.body = {
+      code: 401,
+      msg: '账号密码错误'
+    }
+    return
+  }
+  ctx.body = {
+    code: 200,
+    msg: '登录成功',
+    data: {
+      admin_id: res[0].admin_id
+    }
+  }
+})
 
 router.get('/checkcode', async (ctx) => {
   try {
