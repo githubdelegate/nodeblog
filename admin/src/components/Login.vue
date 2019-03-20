@@ -58,6 +58,18 @@ export default {
       })
       console.log(res)
       alert(res.data.msg)
+      // 登录成功, 先保存当前登录的用户信息,再要跳转 admin 页面
+      if (res.data.code === 200) {
+        this.$store.commit("saveAdminInfo", {
+          admin_id: res.data.data.admin_id || ''
+        })
+        let redirecturl = decodeURIComponent(this.$route.query.redirect || '/admin')
+        console.log('redirecturl =' + redirecturl)
+        this.$router.push({
+          path: redirecturl
+        })
+      }
+      
     },
     async re_checkcode () {
       let res = await this.$http.api_get_checkcode()
